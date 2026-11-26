@@ -8,6 +8,14 @@
 
 ## Windows 桌面版
 
+**推荐：直接下载 exe（无需安装 Python）**
+
+- 下载：[bsod_prank.exe](https://github.com/recombyn/bsod-prank/releases/latest/download/bsod_prank.exe)，双击即可运行
+- 单文件约 12 MB，首次启动会解压到临时目录，稍慢几秒
+- 如被杀毒软件误报，选择允许即可（PyInstaller 打包的程序常见误报）
+
+**源码运行**
+
 1. 下载仓库文件，保持 `bsod_prank.py` 和 `run_bsod.bat` 在同一目录
 2. 双击 `run_bsod.bat` 即可全屏运行
 3. 也可以手动运行：`python bsod_prank.py`
@@ -25,6 +33,7 @@
 
 ## 文件
 
-- `bsod_prank.py` — Python/tkinter 桌面版
-- `run_bsod.bat` — Windows 双击启动器
+- `bsod_prank.py` — Python/tkinter 桌面版源码
+- `run_bsod.bat` — Windows 源码双击启动器
 - `index.html` — 浏览器版（GitHub Pages）
+- Releases 中的 `bsod_prank.exe` — 免安装单文件版
