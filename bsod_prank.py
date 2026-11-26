@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""仿 Windows 蓝屏恶搞程序：退出按钮会跑，继续按钮点两次才退出。"""
+"""仿 Windows 蓝屏恶搞程序：会躲的退出按钮、分裂繁殖、倒计时嘲讽和假关机。"""
 
 import ctypes
 import random
@@ -41,27 +41,36 @@ FONT = "Microsoft YaHei UI"
 
 # ---------- 蓝屏内容 ----------
 tk.Label(root, text=":(", fg="white", bg=BLUE,
-         font=(FONT, px(100))).place(x=px(90), y=px(55))
+         font=(FONT, px(100))).place(x=px(90), y=px(45))
 
 tk.Label(root, text="你的电脑遇到问题，需要重新启动。",
          fg="white", bg=BLUE,
-         font=(FONT, px(30))).place(x=px(90), y=px(220))
+         font=(FONT, px(30))).place(x=px(90), y=px(195))
 
 tk.Label(root, text="我们只收集某些错误信息，然后为你重新启动。",
          fg="white", bg=BLUE,
-         font=(FONT, px(18))).place(x=px(90), y=px(280))
+         font=(FONT, px(18))).place(x=px(90), y=px(255))
 
 tk.Label(root, text="终止代码: SYSTEM_THREAD_EXCEPTION_NOT_HANDLED",
          fg="white", bg=BLUE,
-         font=(FONT, px(17))).place(x=px(90), y=px(380))
+         font=(FONT, px(17))).place(x=px(90), y=px(340))
 
 tk.Label(root, text="出错的文件: ntoskrnl.exe",
          fg="white", bg=BLUE,
-         font=(FONT, px(17))).place(x=px(90), y=px(415))
+         font=(FONT, px(17))).place(x=px(90), y=px(375))
+
+status_var = tk.StringVar(value="正在收集错误信息... 0%")
+taunt_var = tk.StringVar(value="")
+
+tk.Label(root, textvariable=status_var, fg="white", bg=BLUE,
+         font=(FONT, px(17))).place(x=px(90), y=px(430))
+
+tk.Label(root, textvariable=taunt_var, fg="#ffe082", bg=BLUE,
+         font=(FONT, px(18), "bold")).place(x=px(90), y=px(485))
 
 # ---------- 按钮 ----------
-btn_y = SH - px(170)
-cont_x = SW // 2 - px(260)
+btn_y = SH - px(180)
+cont_x = SW // 2 - px(280)
 exit_x = SW // 2 + px(30)
 btn_w, btn_h = px(120), px(44)
 
@@ -78,39 +87,119 @@ cont_btn.place(x=cont_x, y=btn_y)
 exit_btn = tk.Button(root, text="退出", **btn_style)
 exit_btn.place(x=exit_x, y=btn_y)
 
+TAUNTS = [
+    "抓不到我~",
+    "手速不行啊",
+    "别追了，越点越多",
+    "退出按钮已隐藏",
+    "再点也没用",
+    "试试点“继续”？",
+    "你还在点？",
+    "放弃吧，人类",
+]
+clones = []
+dodge_count = 0
+countdown = {"value": 30}
 
-def dodge_exit(event=None):
-    """退出按钮：鼠标靠近或点击时随机跑开。"""
-    w = exit_btn.winfo_width() or btn_w
-    h = exit_btn.winfo_height() or btn_h
+
+def overlaps(l, t, w, h, l2, t2, w2, h2, pad=0):
+    return l < l2 + w2 + pad and l + w > l2 - pad and \
+           t < t2 + h2 + pad and t + h > t2 - pad
+
+
+def spawn_clone():
+    """退出按钮分裂出一个新的退出按钮。"""
+    if len(clones) >= 5:
+        return
+    btn = tk.Button(root, text="退出", **btn_style)
+    btn.place(x=random.randint(10, max(11, SW - btn_w - 10)),
+              y=random.randint(10, max(11, SH - btn_h - 10)))
+    btn.bind("<Enter>", lambda e, b=btn: dodge(b))
+    btn.bind("<ButtonPress-1>", lambda e, b=btn: dodge(b))
+    btn.config(command=lambda b=btn: dodge(b))
+    clones.append(btn)
+    btn.lift()
+    taunt_var.set("退出按钮 +1")
+
+
+def dodge(btn=None):
+    """退出按钮：鼠标靠近或点击时随机跑开，还会分裂和嘲讽。"""
+    global dodge_count
+    btn = btn if btn is not None else exit_btn
+    w = btn.winfo_width() or btn_w
+    h = btn.winfo_height() or btn_h
     mx, my = root.winfo_pointerx(), root.winfo_pointery()
-    for _ in range(30):
+    for _ in range(40):
         nx = random.randint(10, max(11, SW - w - 10))
         ny = random.randint(10, max(11, SH - h - 10))
-        # 不落在“继续”按钮上，也不落在当前鼠标位置（避免反复触发）
-        if nx < cont_x + btn_w + px(20) and nx + w > cont_x - px(20) \
-                and ny < btn_y + btn_h + px(20) and ny + h > btn_y - px(20):
+        if overlaps(nx, ny, w, h, cont_x, btn_y, btn_w, btn_h, px(20)):
             continue
-        if nx - 5 <= mx <= nx + w + 5 and ny - 5 <= my <= ny + h + 5:
+        if overlaps(nx, ny, w, h, mx, my, 1, 1, px(8)):
             continue
-        exit_btn.place(x=nx, y=ny)
+        btn.place(x=nx, y=ny)
+        btn.lift()
+        break
+
+    dodge_count += 1
+    taunt_var.set(TAUNTS[min(dodge_count - 1, len(TAUNTS) - 1)])
+    countdown["value"] += random.randint(5, 15)
+    if dodge_count % 3 == 0:
+        spawn_clone()
+    if dodge_count % 5 == 0:
+        root.bell()
+
+
+exit_btn.bind("<Enter>", lambda e: dodge(exit_btn))
+exit_btn.bind("<ButtonPress-1>", lambda e: dodge(exit_btn))
+exit_btn.config(command=lambda: dodge(exit_btn))
+
+# ---------- 进度条 + 假倒计时 ----------
+def collect(step=0):
+    if step <= 100:
+        status_var.set(f"正在收集错误信息... {step}%")
+        root.after(30, lambda: collect(step + random.randint(2, 7)))
+    else:
+        countdown["value"] = 30
+        tick_countdown()
+
+
+def tick_countdown():
+    value = countdown["value"] - 1
+    if value <= 0:
+        status_var.set("正在重新启动... (假的)")
+        taunt_var.set("重启失败，倒计时重新开始")
+        root.after(1000, restart_countdown)
         return
+    countdown["value"] = value
+    status_var.set(f"你的电脑将在 {value} 秒后重新启动。")
+    root.after(1000, tick_countdown)
 
 
-exit_btn.bind("<Enter>", dodge_exit)
-exit_btn.bind("<ButtonPress-1>", dodge_exit)
-exit_btn.config(command=dodge_exit)
+def restart_countdown():
+    countdown["value"] = 30
+    tick_countdown()
 
+
+# ---------- 继续按钮与假关机 ----------
 state = {"confirmed": False}
 
 
+def fake_shutdown():
+    overlay = tk.Frame(root, bg="#000000")
+    overlay.place(x=0, y=0, width=SW, height=SH)
+    tk.Label(overlay, text="正在退出...", fg="white", bg="#000000",
+             font=(FONT, px(30))).place(relx=0.5, rely=0.5, anchor="center")
+    overlay.lift()
+    root.after(1300, root.destroy)
+
+
 def on_continue():
-    """继续按钮：第一次变成“确定继续吗？”，第二次退出。"""
     if not state["confirmed"]:
         state["confirmed"] = True
-        cont_btn.config(text="确定继续吗？")
-    else:
-        root.destroy()
+        cont_btn.config(text="确定继续吗？", bg="#ffe0b2")
+        taunt_var.set("再点一次就真的退出了")
+        return
+    fake_shutdown()
 
 
 cont_btn.config(command=on_continue)
@@ -119,4 +208,5 @@ cont_btn.config(command=on_continue)
 if "--selftest" in sys.argv:
     root.after(500, root.destroy)
 
+root.after(200, collect)
 root.mainloop()

@@ -12,12 +12,13 @@
     font-family: "Microsoft YaHei UI", "Microsoft YaHei", "Segoe UI", sans-serif;
     user-select: none; -webkit-user-select: none;
   }
-  .face { position: absolute; left: 5%; top: 6%; font-size: clamp(60px, 10vw, 130px); line-height: 1; }
-  .title { position: absolute; left: 5%; top: 22%; font-size: clamp(20px, 2.2vw, 32px); font-weight: 400; }
-  .subtitle { position: absolute; left: 5%; top: 30%; font-size: clamp(13px, 1.3vw, 19px); }
-  .code { position: absolute; left: 5%; top: 40%; font-size: clamp(12px, 1.2vw, 18px); }
-  .code.second { top: 45%; }
-  .buttons { position: absolute; left: 0; right: 0; bottom: 14%; height: 56px; }
+  .face { position: absolute; left: 5%; top: 5%; font-size: clamp(60px, 10vw, 130px); line-height: 1; }
+  .title { position: absolute; left: 5%; top: 20%; font-size: clamp(20px, 2.2vw, 32px); font-weight: 400; }
+  .subtitle { position: absolute; left: 5%; top: 28%; font-size: clamp(13px, 1.3vw, 19px); }
+  .code { position: absolute; left: 5%; top: 38%; font-size: clamp(12px, 1.2vw, 18px); }
+  .code.second { top: 43%; }
+  .status { position: absolute; left: 5%; top: 48%; font-size: clamp(12px, 1.2vw, 18px); }
+  .taunt { position: absolute; left: 5%; bottom: 24%; font-size: clamp(14px, 1.4vw, 20px); color: #ffe082; font-weight: bold; }
   button {
     position: fixed;
     min-width: 130px; height: 46px;
@@ -30,6 +31,21 @@
   button:hover { background: #e4e4e4; }
   #continueBtn { left: calc(50% - 150px); bottom: 14%; }
   #exitBtn { left: calc(50% + 30px); bottom: 14%; }
+  .float {
+    position: fixed; z-index: 50; pointer-events: none;
+    color: #ffe082; font-weight: bold; font-size: 18px;
+    animation: floatUp 0.9s ease-out forwards;
+  }
+  @keyframes floatUp {
+    from { opacity: 1; transform: translateY(0); }
+    to { opacity: 0; transform: translateY(-50px); }
+  }
+  .overlay {
+    position: fixed; inset: 0; z-index: 100;
+    display: none; align-items: center; justify-content: center;
+    background: #000; color: #fff; font-size: clamp(20px, 2.2vw, 32px);
+  }
+  .overlay.show { display: flex; }
   .bye {
     position: absolute; inset: 0; display: flex;
     align-items: center; justify-content: center; flex-direction: column;
@@ -44,14 +60,25 @@
   <div class="subtitle">我们只收集某些错误信息，然后为你重新启动。</div>
   <div class="code">终止代码: SYSTEM_THREAD_EXCEPTION_NOT_HANDLED</div>
   <div class="code second">出错的文件: ntoskrnl.exe</div>
+  <div class="status" id="status">正在收集错误信息... 0%</div>
+  <div class="taunt" id="taunt"></div>
 
   <button id="continueBtn" type="button">继续</button>
   <button id="exitBtn" type="button">退出</button>
+  <div class="overlay" id="overlay">正在退出...</div>
 
 <script>
 (function () {
   var exitBtn = document.getElementById('exitBtn');
   var continueBtn = document.getElementById('continueBtn');
+  var statusEl = document.getElementById('status');
+  var tauntEl = document.getElementById('taunt');
+  var overlay = document.getElementById('overlay');
+  var TAUNTS = ['抓不到我~', '手速不行啊', '别追了，越点越多', '退出按钮已隐藏',
+                '再点也没用', '试试点“继续”？', '你还在点？', '放弃吧，人类'];
+  var clones = [];
+  var dodgeCount = 0;
+  var countdownValue = 30;
   var confirmed = false;
   var pointer = { x: -999, y: -999 };
 
@@ -71,43 +98,108 @@
            a.top < b.top + b.h + pad && a.top + a.h > b.top - pad;
   }
 
-  // 退出按钮：鼠标靠近或按下时随机跑开
-  function dodge() {
-    var r = rect(exitBtn);
+  function placeRandom(btn) {
+    var r = rect(btn);
     var c = rect(continueBtn);
     var maxX = Math.max(10, window.innerWidth - r.w - 10);
     var maxY = Math.max(10, window.innerHeight - r.h - 10);
-    for (var i = 0; i < 30; i++) {
+    var underPointer = { left: pointer.x, top: pointer.y, w: 1, h: 1 };
+    for (var i = 0; i < 40; i++) {
       var x = 10 + Math.random() * (maxX - 10);
       var y = 10 + Math.random() * (maxY - 10);
       var candidate = { left: x, top: y, w: r.w, h: r.h };
-      var underPointer = { left: pointer.x, top: pointer.y, w: 1, h: 1 };
       if (overlaps(candidate, c, 20)) continue;
       if (overlaps(candidate, underPointer, 8)) continue;
-      exitBtn.style.left = x + 'px';
-      exitBtn.style.top = y + 'px';
-      exitBtn.style.bottom = 'auto';
+      btn.style.left = x + 'px';
+      btn.style.top = y + 'px';
+      btn.style.bottom = 'auto';
       return;
     }
   }
 
-  exitBtn.addEventListener('pointerenter', dodge);
-  exitBtn.addEventListener('pointerdown', dodge);
-  exitBtn.addEventListener('click', dodge);
+  function floatTaunt(text) {
+    var el = document.createElement('div');
+    el.className = 'float';
+    el.textContent = text;
+    el.style.left = Math.max(10, pointer.x + 12) + 'px';
+    el.style.top = Math.max(10, pointer.y + 12) + 'px';
+    document.body.appendChild(el);
+    setTimeout(function () { el.remove(); }, 900);
+  }
 
-  // 继续按钮：第一次变成“确定继续吗？”，第二次退出
+  function spawnClone() {
+    if (clones.length >= 5) return;
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.textContent = '退出';
+    document.body.appendChild(btn);
+    placeRandom(btn);
+    bindExit(btn);
+    clones.push(btn);
+    tauntEl.textContent = '退出按钮 +1';
+  }
+
+  function dodge(btn) {
+    placeRandom(btn);
+    dodgeCount++;
+    tauntEl.textContent = TAUNTS[Math.min(dodgeCount - 1, TAUNTS.length - 1)];
+    countdownValue += 5 + Math.floor(Math.random() * 11);
+    if (dodgeCount % 3 === 0) spawnClone();
+    if (dodgeCount % 2 === 0) floatTaunt(TAUNTS[Math.min(dodgeCount - 1, TAUNTS.length - 1)]);
+  }
+
+  function bindExit(btn) {
+    btn.addEventListener('pointerenter', function () { dodge(btn); });
+    btn.addEventListener('pointerdown', function () { dodge(btn); });
+    btn.addEventListener('click', function () { dodge(btn); });
+  }
+
+  bindExit(exitBtn);
+
+  // 进度动画 + 假倒计时
+  var progress = 0;
+  var progressTimer = setInterval(function () {
+    progress += 2 + Math.floor(Math.random() * 6);
+    if (progress >= 100) {
+      clearInterval(progressTimer);
+      statusEl.textContent = '正在收集错误信息... 100%';
+      setTimeout(function () {
+        statusEl.textContent = '你的电脑将在 30 秒后重新启动。';
+        setInterval(function () {
+          countdownValue--;
+          if (countdownValue <= 0) {
+            statusEl.textContent = '正在重新启动... (假的)';
+            tauntEl.textContent = '重启失败，倒计时重新开始';
+            setTimeout(function () {
+              countdownValue = 30;
+              statusEl.textContent = '你的电脑将在 30 秒后重新启动。';
+            }, 1000);
+          } else {
+            statusEl.textContent = '你的电脑将在 ' + countdownValue + ' 秒后重新启动。';
+          }
+        }, 1000);
+      }, 400);
+    } else {
+      statusEl.textContent = '正在收集错误信息... ' + progress + '%';
+    }
+  }, 40);
+
+  // 继续按钮：第一次确认，第二次假关机
   continueBtn.addEventListener('click', function () {
     if (!confirmed) {
       confirmed = true;
       continueBtn.textContent = '确定继续吗？';
+      continueBtn.style.background = '#ffe0b2';
+      tauntEl.textContent = '再点一次就真的退出了';
       return;
     }
-    window.close();
+    overlay.classList.add('show');
     setTimeout(function () {
+      window.close();
       document.body.innerHTML =
         '<div class="bye"><div>页面已退出，你可以关闭此标签页。</div>' +
         '<a href="" onclick="location.reload();return false;">重新开始</a></div>';
-    }, 200);
+    }, 1300);
   });
 })();
 </script>
