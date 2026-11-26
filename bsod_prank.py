@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""仿 Windows 蓝屏恶搞程序：会躲的退出按钮、分裂繁殖、倒计时嘲讽和假关机。"""
+"""仿 Windows 蓝屏恶搞程序：会躲的退出按钮、倒计时嘲讽和循环假关机。"""
 
 import ctypes
 import random
@@ -90,14 +90,13 @@ exit_btn.place(x=exit_x, y=btn_y)
 TAUNTS = [
     "抓不到我~",
     "手速不行啊",
-    "别追了，越点越多",
+    "别追了，抓不到的",
     "退出按钮已隐藏",
     "再点也没用",
     "试试点“继续”？",
     "你还在点？",
     "放弃吧，人类",
 ]
-clones = []
 dodge_count = 0
 countdown = {"value": 30}
 
@@ -105,21 +104,6 @@ countdown = {"value": 30}
 def overlaps(l, t, w, h, l2, t2, w2, h2, pad=0):
     return l < l2 + w2 + pad and l + w > l2 - pad and \
            t < t2 + h2 + pad and t + h > t2 - pad
-
-
-def spawn_clone():
-    """退出按钮分裂出一个新的退出按钮。"""
-    if len(clones) >= 5:
-        return
-    btn = tk.Button(root, text="退出", **btn_style)
-    btn.place(x=random.randint(10, max(11, SW - btn_w - 10)),
-              y=random.randint(10, max(11, SH - btn_h - 10)))
-    btn.bind("<Enter>", lambda e, b=btn: dodge(b))
-    btn.bind("<ButtonPress-1>", lambda e, b=btn: dodge(b))
-    btn.config(command=lambda b=btn: dodge(b))
-    clones.append(btn)
-    btn.lift()
-    taunt_var.set("退出按钮 +1")
 
 
 def dodge(btn=None):
@@ -143,8 +127,6 @@ def dodge(btn=None):
     dodge_count += 1
     taunt_var.set(TAUNTS[min(dodge_count - 1, len(TAUNTS) - 1)])
     countdown["value"] += random.randint(5, 15)
-    if dodge_count % 3 == 0:
-        spawn_clone()
     if dodge_count % 5 == 0:
         root.bell()
 
@@ -180,8 +162,23 @@ def restart_countdown():
     tick_countdown()
 
 
-# ---------- 继续按钮与假关机 ----------
-state = {"confirmed": False}
+# ---------- 继续按钮：假关机循环，失败几次才真退 ----------
+state = {"confirmed": False, "failures": 0}
+MAX_FAILURES = 3
+
+
+def finish_shutdown(overlay):
+    overlay.destroy()
+    state["failures"] += 1
+    if state["failures"] > MAX_FAILURES:
+        root.destroy()
+        return
+    # 假关机失败，蓝屏“恢复”，继续按钮重置，再来一轮
+    state["confirmed"] = False
+    cont_btn.config(text="继续", bg="#f2f2f2")
+    taunt_var.set(f"第 {state['failures']} 次退出失败，蓝屏已恢复")
+    status_var.set("正在重新启动... (假的)")
+    countdown["value"] = 30
 
 
 def fake_shutdown():
@@ -190,14 +187,17 @@ def fake_shutdown():
     tk.Label(overlay, text="正在退出...", fg="white", bg="#000000",
              font=(FONT, px(30))).place(relx=0.5, rely=0.5, anchor="center")
     overlay.lift()
-    root.after(1300, root.destroy)
+    root.after(1300, lambda: finish_shutdown(overlay))
 
 
 def on_continue():
     if not state["confirmed"]:
         state["confirmed"] = True
         cont_btn.config(text="确定继续吗？", bg="#ffe0b2")
-        taunt_var.set("再点一次就真的退出了")
+        if state["failures"] >= MAX_FAILURES:
+            taunt_var.set("这次应该是真的了...吧？")
+        else:
+            taunt_var.set("再点一次试试？")
         return
     fake_shutdown()
 

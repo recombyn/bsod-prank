@@ -74,12 +74,13 @@
   var statusEl = document.getElementById('status');
   var tauntEl = document.getElementById('taunt');
   var overlay = document.getElementById('overlay');
-  var TAUNTS = ['抓不到我~', '手速不行啊', '别追了，越点越多', '退出按钮已隐藏',
+  var TAUNTS = ['抓不到我~', '手速不行啊', '别追了，抓不到的', '退出按钮已隐藏',
                 '再点也没用', '试试点“继续”？', '你还在点？', '放弃吧，人类'];
-  var clones = [];
   var dodgeCount = 0;
   var countdownValue = 30;
   var confirmed = false;
+  var failures = 0;
+  var MAX_FAILURES = 3;
   var pointer = { x: -999, y: -999 };
 
   document.addEventListener('pointermove', function (e) {
@@ -127,24 +128,11 @@
     setTimeout(function () { el.remove(); }, 900);
   }
 
-  function spawnClone() {
-    if (clones.length >= 5) return;
-    var btn = document.createElement('button');
-    btn.type = 'button';
-    btn.textContent = '退出';
-    document.body.appendChild(btn);
-    placeRandom(btn);
-    bindExit(btn);
-    clones.push(btn);
-    tauntEl.textContent = '退出按钮 +1';
-  }
-
   function dodge(btn) {
     placeRandom(btn);
     dodgeCount++;
     tauntEl.textContent = TAUNTS[Math.min(dodgeCount - 1, TAUNTS.length - 1)];
     countdownValue += 5 + Math.floor(Math.random() * 11);
-    if (dodgeCount % 3 === 0) spawnClone();
     if (dodgeCount % 2 === 0) floatTaunt(TAUNTS[Math.min(dodgeCount - 1, TAUNTS.length - 1)]);
   }
 
@@ -184,21 +172,32 @@
     }
   }, 40);
 
-  // 继续按钮：第一次确认，第二次假关机
+  // 继续按钮：确认后假关机，反复几轮才真退出
   continueBtn.addEventListener('click', function () {
     if (!confirmed) {
       confirmed = true;
       continueBtn.textContent = '确定继续吗？';
       continueBtn.style.background = '#ffe0b2';
-      tauntEl.textContent = '再点一次就真的退出了';
+      tauntEl.textContent = failures >= MAX_FAILURES ? '这次应该是真的了...吧？' : '再点一次试试？';
       return;
     }
     overlay.classList.add('show');
     setTimeout(function () {
-      window.close();
-      document.body.innerHTML =
-        '<div class="bye"><div>页面已退出，你可以关闭此标签页。</div>' +
-        '<a href="" onclick="location.reload();return false;">重新开始</a></div>';
+      failures++;
+      if (failures > MAX_FAILURES) {
+        window.close();
+        document.body.innerHTML =
+          '<div class="bye"><div>页面已退出，你可以关闭此标签页。</div>' +
+          '<a href="" onclick="location.reload();return false;">重新开始</a></div>';
+        return;
+      }
+      overlay.classList.remove('show');
+      confirmed = false;
+      continueBtn.textContent = '继续';
+      continueBtn.style.background = '#f2f2f2';
+      tauntEl.textContent = '第 ' + failures + ' 次退出失败，蓝屏已恢复';
+      statusEl.textContent = '正在重新启动... (假的)';
+      countdownValue = 30;
     }, 1300);
   });
 })();
