@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Windows</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; width: 100%; height: 100%;
+    background: #0078D4; color: #fff; overflow: hidden;
+    font-family: "Microsoft YaHei UI", "Microsoft YaHei", "Segoe UI", sans-serif;
+    user-select: none; -webkit-user-select: none;
+  }
+  .face { position: absolute; left: 5%; top: 6%; font-size: clamp(60px, 10vw, 130px); line-height: 1; }
+  .title { position: absolute; left: 5%; top: 22%; font-size: clamp(20px, 2.2vw, 32px); font-weight: 400; }
+  .subtitle { position: absolute; left: 5%; top: 30%; font-size: clamp(13px, 1.3vw, 19px); }
+  .code { position: absolute; left: 5%; top: 40%; font-size: clamp(12px, 1.2vw, 18px); }
+  .code.second { top: 45%; }
+  .buttons { position: absolute; left: 0; right: 0; bottom: 14%; height: 56px; }
+  button {
+    position: fixed;
+    min-width: 130px; height: 46px;
+    padding: 0 18px;
+    font-family: inherit; font-size: 17px;
+    color: #111; background: #f2f2f2;
+    border: 1px solid #767676; border-radius: 2px;
+    cursor: pointer;
+  }
+  button:hover { background: #e4e4e4; }
+  #continueBtn { left: calc(50% - 150px); bottom: 14%; }
+  #exitBtn { left: calc(50% + 30px); bottom: 14%; }
+  .bye {
+    position: absolute; inset: 0; display: flex;
+    align-items: center; justify-content: center; flex-direction: column;
+    gap: 16px; background: #f3f3f3; color: #333; font-size: 18px;
+  }
+  .bye a { color: #0067c0; font-size: 15px; }
+</style>
+</head>
+<body>
+  <div class="face">:(</div>
+  <div class="title">你的电脑遇到问题，需要重新启动。</div>
+  <div class="subtitle">我们只收集某些错误信息，然后为你重新启动。</div>
+  <div class="code">终止代码: SYSTEM_THREAD_EXCEPTION_NOT_HANDLED</div>
+  <div class="code second">出错的文件: ntoskrnl.exe</div>
+
+  <button id="continueBtn" type="button">继续</button>
+  <button id="exitBtn" type="button">退出</button>
+
+<script>
+(function () {
+  var exitBtn = document.getElementById('exitBtn');
+  var continueBtn = document.getElementById('continueBtn');
+  var confirmed = false;
+  var pointer = { x: -999, y: -999 };
+
+  document.addEventListener('pointermove', function (e) {
+    pointer.x = e.clientX;
+    pointer.y = e.clientY;
+  }, { passive: true });
+
+  function rect(el) {
+    var r = el.getBoundingClientRect();
+    return { left: r.left, top: r.top, w: r.width, h: r.height };
+  }
+
+  function overlaps(a, b, pad) {
+    pad = pad || 0;
+    return a.left < b.left + b.w + pad && a.left + a.w > b.left - pad &&
+           a.top < b.top + b.h + pad && a.top + a.h > b.top - pad;
+  }
+
+  // 退出按钮：鼠标靠近或按下时随机跑开
+  function dodge() {
+    var r = rect(exitBtn);
+    var c = rect(continueBtn);
+    var maxX = Math.max(10, window.innerWidth - r.w - 10);
+    var maxY = Math.max(10, window.innerHeight - r.h - 10);
+    for (var i = 0; i < 30; i++) {
+      var x = 10 + Math.random() * (maxX - 10);
+      var y = 10 + Math.random() * (maxY - 10);
+      var candidate = { left: x, top: y, w: r.w, h: r.h };
+      var underPointer = { left: pointer.x, top: pointer.y, w: 1, h: 1 };
+      if (overlaps(candidate, c, 20)) continue;
+      if (overlaps(candidate, underPointer, 8)) continue;
+      exitBtn.style.left = x + 'px';
+      exitBtn.style.top = y + 'px';
+      exitBtn.style.bottom = 'auto';
+      return;
+    }
+  }
+
+  exitBtn.addEventListener('pointerenter', dodge);
+  exitBtn.addEventListener('pointerdown', dodge);
+  exitBtn.addEventListener('click', dodge);
+
+  // 继续按钮：第一次变成“确定继续吗？”，第二次退出
+  continueBtn.addEventListener('click', function () {
+    if (!confirmed) {
+      confirmed = true;
+      continueBtn.textContent = '确定继续吗？';
+      return;
+    }
+    window.close();
+    setTimeout(function () {
+      document.body.innerHTML =
+        '<div class="bye"><div>页面已退出，你可以关闭此标签页。</div>' +
+        '<a href="" onclick="location.reload();return false;">重新开始</a></div>';
+    }, 200);
+  });
+})();
+</script>
+</body>
+</html>
